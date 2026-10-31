@@ -17,7 +17,7 @@ A Spring Boot and React application that manages customer **memberships, point b
 
 
 
-[Features](#-features) · <img width="1891" height="843" alt="image" src="https://github.com/user-attachments/assets/9f033410-e632-40c0-b694-ee930d21b341" />
+ <img width="1891" height="843" alt="image" src="https://github.com/user-attachments/assets/9f033410-e632-40c0-b694-ee930d21b341" />
 
 
 </div>
