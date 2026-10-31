@@ -1,0 +1,1208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>The Foodie — Rewards Console (G37)</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.24.7/babel.min.js"></script>
+  <style>
+    html, body { margin: 0; padding: 0; background: #F6F5F2; }
+    #root { min-height: 100vh; }
+    /* full-height wrapper so the console fills the window */
+    #root > div { min-height: 100vh !important; border-radius: 0 !important; box-shadow: none !important; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel" data-presets="react">
+const { useState, useMemo, useEffect } = React;
+
+
+/* ============================================================
+   The Foodie — Reward & Point Management System
+   Interactive console prototype (Group G37)
+   Every action runs the real logic behind the team's SQL.
+   ============================================================ */
+
+const FONT_CSS = `
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+`;
+
+/* ---------- seed data (from G37 insert script) ---------- */
+
+const TIERS = {
+  L01: { name: "Bronze", req: 0, color: "#B87333" },
+  L02: { name: "Silver", req: 1000, color: "#8A97A3" },
+  L03: { name: "Gold", req: 2000, color: "#D9A521" },
+  L04: { name: "Platinum", req: 3000, color: "#5C6B78" },
+  L05: { name: "Diamond", req: 5000, color: "#39B9CC" },
+};
+
+const MEMBERSHIPS = {
+  M0001: { tier: "L03", join: "07-07-2021" },
+  M0002: { tier: "L02", join: "11-04-2022" },
+  M0003: { tier: "L01", join: "18-09-2022" },
+  M0004: { tier: "L04", join: "01-11-2022" },
+  M0005: { tier: "L02", join: "25-12-2022" },
+  M0006: { tier: "L02", join: "15-01-2023" },
+  M0007: { tier: "L01", join: "25-03-2023" },
+  M0008: { tier: "L01", join: "30-06-2023" },
+  M0009: { tier: "L01", join: "01-08-2023" },
+  M0010: { tier: "L02", join: "05-10-2023" },
+  M0011: { tier: "L02", join: "22-01-2024" },
+  M0012: { tier: "L01", join: "14-02-2024" },
+  M0013: { tier: "L03", join: "20-05-2024" },
+  M0014: { tier: "L01", join: "10-08-2024" },
+  M0015: { tier: "L01", join: "01-12-2024" },
+};
+
+const SEED_CUSTOMERS = [
+  { id: 10001, name: "Ali Bin Ahmad", phone: "01234567890", email: "ali.ahmad@gmail.com", memId: "M0001" },
+  { id: 10002, name: "Tan Mei Ling", phone: "01987654321", email: "tan.mei@outlook.com", memId: "M0002" },
+  { id: 10003, name: "Ravi Kumar", phone: "01311223344", email: "ravi.kumar@yahoo.com", memId: "M0003" },
+  { id: 10004, name: "Aisha Zainal", phone: "01455667788", email: "aisha.zainal@gmail.com", memId: "M0004" },
+  { id: 10005, name: "Lim Kok Leong", phone: "01233445566", email: "kokleong.lim@mail.com", memId: "M0005" },
+  { id: 10006, name: "Siti Nurhaliza", phone: "01199887766", email: "siti.nur@gmail.com", memId: "M0006" },
+  { id: 10007, name: "James Wong", phone: "01766778899", email: "james.wong@live.com", memId: "M0007" },
+  { id: 10008, name: "Aminah Hussein", phone: "01811223344", email: "aminah.hussein@ymail.com", memId: "M0008" },
+  { id: 10009, name: "Chong Wei", phone: "01055667788", email: "chong.wei@gmail.com", memId: "M0009" },
+  { id: 10010, name: "Maria Tan", phone: "01912345678", email: "maria.tan@hotmail.com", memId: "M0010" },
+  { id: 10011, name: "Koo Zhe Quan", phone: "0211209198", email: "kooquan@gmail.com", memId: "M0011" },
+  { id: 10012, name: "Nur Sabrina", phone: "01266554433", email: "sabrina_nur@outlook.com", memId: "M0012" },
+  { id: 10013, name: "Lim Jing Yee", phone: "01933221144", email: "jingyee.lim@mail.com", memId: "M0013" },
+  { id: 10014, name: "Zulkifli Hassan", phone: "01833445566", email: "zulkifli.has@gmail.com", memId: "M0014" },
+  { id: 10015, name: "Anita Das", phone: "01155667788", email: "anita.das@hotmail.com", memId: "M0015" },
+];
+
+// PointsBalance, status, earned, used, memId
+const SEED_POINTS = {
+  10001: { bal: 1500, status: "Active", earned: 2500, used: 1000, memId: "M0001" },
+  10002: { bal: 500, status: "Active", earned: 1500, used: 1000, memId: "M0002" },
+  10003: { bal: 0, status: "Expiry", earned: 500, used: 500, memId: "M0003" },
+  10004: { bal: 2000, status: "Active", earned: 3000, used: 1000, memId: "M0004" },
+  10005: { bal: 0, status: "Expiry", earned: 1000, used: 1000, memId: "M0005" },
+  10006: { bal: 750, status: "Active", earned: 1250, used: 500, memId: "M0006" },
+  10007: { bal: 0, status: "Expiry", earned: 750, used: 750, memId: "M0007" },
+  10008: { bal: 300, status: "Active", earned: 800, used: 500, memId: "M0008" },
+  10009: { bal: 0, status: "Expiry", earned: 300, used: 300, memId: "M0009" },
+  10010: { bal: 1200, status: "Active", earned: 1700, used: 500, memId: "M0010" },
+  10011: { bal: 900, status: "Active", earned: 1400, used: 500, memId: "M0011" },
+  10012: { bal: 0, status: "Expiry", earned: 600, used: 600, memId: "M0012" },
+  10013: { bal: 1800, status: "Active", earned: 2300, used: 500, memId: "M0013" },
+  10014: { bal: 400, status: "Active", earned: 900, used: 500, memId: "M0014" },
+  10015: { bal: 0, status: "Expiry", earned: 400, used: 400, memId: "M0015" },
+};
+
+const CATALOG = {
+  C1001: { name: "Combo Meals", desc: "Meal combos with drinks", active: true },
+  C1002: { name: "Gift Items", desc: "Branded merchandise", active: false },
+  C1003: { name: "Refreshments", desc: "Cold and hot beverages", active: true },
+  C1004: { name: "Seasonal Specials", desc: "Limited time offers", active: true },
+  C1005: { name: "Kids' Rewards", desc: "Toys and items for kids", active: false },
+};
+
+const SEED_REWARDS = [
+  { id: "R0001", name: "Chicken Combo Meal", pts: 180, type: "Food", stock: 25, cat: "C1001", lastRestock: "2025-01-04" },
+  { id: "R0002", name: "Coffee Mug", pts: 120, type: "Merchandise", stock: 10, cat: "C1002", lastRestock: "2025-04-03" },
+  { id: "R0003", name: "Ice Cream Sundae", pts: 90, type: "Dessert", stock: 20, cat: "C1001", lastRestock: "2025-03-15" },
+  { id: "R0004", name: "Fries Upgrade", pts: 60, type: "Food Add-on", stock: 40, cat: "C1001", lastRestock: "2025-04-02" },
+  { id: "R0005", name: "Fried Chicken Piece", pts: 70, type: "Food Add-on", stock: 50, cat: "C1001", lastRestock: "2025-02-02" },
+  { id: "R0006", name: "Cheeseburger Set", pts: 150, type: "Food", stock: 30, cat: "C1001", lastRestock: "2025-01-16" },
+  { id: "R0007", name: "Tumbler Bottle", pts: 160, type: "Merchandise", stock: 12, cat: "C1002", lastRestock: "2025-04-03" },
+  { id: "R0008", name: "Plush Toy", pts: 100, type: "Merchandise", stock: 5, cat: "C1002", lastRestock: "2025-02-22" },
+  { id: "R0009", name: "Free Americano", pts: 90, type: "Beverage", stock: 15, cat: "C1003", lastRestock: "2025-04-10" },
+  { id: "R0010", name: "Free Ice Latte", pts: 100, type: "Beverage", stock: 20, cat: "C1003", lastRestock: "2025-03-16" },
+  { id: "R0011", name: "Tupperware", pts: 300, type: "Merchandise", stock: 10, cat: "C1005", lastRestock: "2025-03-20" },
+  { id: "R0012", name: "Kids Meal Set", pts: 140, type: "Food", stock: 18, cat: "C1005", lastRestock: "2025-04-10" },
+  { id: "R0013", name: "Festive Hamper", pts: 250, type: "Seasonal", stock: 5, cat: "C1004", lastRestock: "2025-03-11" },
+  { id: "R0014", name: "Free Ice Mocha", pts: 120, type: "Beverage", stock: 20, cat: "C1003", lastRestock: "2025-03-11" },
+  { id: "R0015", name: "Limited Edition Toy", pts: 300, type: "Collectible", stock: 3, cat: "C1005", lastRestock: "2025-02-27" },
+];
+
+const SEED_TX = [
+  ["T0001", "Earn", 100, 0, "11-04-2025", "Completed", 10001],
+  ["T0002", "Redeem", 0, 150, "11-04-2025", "Completed", 10002],
+  ["T0003", "Earn", 200, 0, "12-04-2025", "Pending", 10003],
+  ["T0004", "Earn", 150, 0, "13-04-2025", "Completed", 10004],
+  ["T0005", "Redeem", 0, 120, "14-04-2025", "Completed", 10005],
+  ["T0006", "Earn", 300, 0, "15-04-2025", "Completed", 10006],
+  ["T0007", "Redeem", 0, 100, "16-04-2025", "Completed", 10007],
+  ["T0008", "Earn", 180, 0, "17-04-2025", "Completed", 10008],
+  ["T0009", "Earn", 250, 0, "17-04-2025", "Pending", 10009],
+  ["T0010", "Redeem", 0, 200, "18-04-2025", "Completed", 10010],
+  ["T0013", "Redeem", 0, 100, "26-04-2025", "Pending", 10013],
+  ["T0018", "Earn", 90, 0, "28-04-2025", "Failed", 10008],
+  ["T0020", "Redeem", 0, 120, "28-04-2025", "Failed", 10009],
+  ["T0022", "Earn", 130, 0, "29-04-2025", "Completed", 10008],
+  ["T0026", "Earn", 100, 0, "30-04-2025", "Completed", 10001],
+  ["T0027", "Earn", 135, 0, "30-04-2025", "Completed", 10002],
+].map(([id, type, earned, redeemed, date, status, cust]) => ({ id, type, earned, redeemed, date, status, cust }));
+
+const SEED_REDEMPTIONS = [
+  ["RD06", 10013, "R0012", "26-04-2025", "Pending", "T0013", 100],
+  ["RD08", 10002, "R0011", "27-04-2025", "Pending", "T0016", 50],
+  ["RD09", 10004, "R0013", "27-04-2025", "Pending", "T0017", 250],
+  ["RD03", 10007, "R0004", "16-04-2025", "Completed", "T0007", 100],
+  ["RD04", 10009, "R0006", "18-04-2025", "Completed", "T0009", 200],
+  ["RD11", 10009, "R0003", "28-04-2025", "Failed", "T0020", 120],
+].map(([id, cust, reward, date, status, txn, pts]) => ({ id, cust, reward, date, status, txn, pts }));
+
+const PAYMENTS = {
+  10001: 250.2, 10002: 135.0, 10003: 105.67, 10004: 150.0, 10006: 300.0,
+  10008: 400.47, 10009: 250.06, 10011: 80.1, 10015: 50.0,
+};
+
+const TX_COUNT = { 10001: 3, 10002: 4, 10003: 2, 10004: 2, 10005: 1, 10006: 1, 10007: 4, 10008: 4, 10009: 3, 10010: 1, 10011: 1, 10012: 3, 10013: 1, 10014: 1, 10015: 1 };
+
+/* ---------- member ownership of each SQL artifact ---------- */
+const MEMBERS = {
+  ng: { name: "Ng Wei Jie", short: "NW", color: "#E8663A" },
+  owi: { name: "Owi Wilson", short: "OW", color: "#2E9E6B" },
+  tan: { name: "Tan Cheng Lock", short: "TC", color: "#3D7EDB" },
+  yee: { name: "Yee Hao Zhe", short: "YH", color: "#9B5DE0" },
+};
+
+/* ---------- real SQL snippets, tagged to their author ---------- */
+const SQL = {
+  redeem: { by: "owi", kind: "Stored Procedure", title: "RedeemRewards", code:
+`CREATE OR REPLACE PROCEDURE RedeemRewards (
+  cID IN Customer.CustID%TYPE,
+  rID IN Reward.RewardID%TYPE
+) IS
+  curPoints    Point.PointsBalance%TYPE;
+  rewardPoints Reward.PointsRequired%TYPE;
+  curStock     Reward.Stock%TYPE;
+  status       RewardCatalog.IsActive%TYPE;
+BEGIN
+  SELECT PointsBalance INTO curPoints
+  FROM Point WHERE CustID = cID;
+
+  SELECT r.PointsRequired, r.Stock, rc.IsActive
+  INTO rewardPoints, curStock, status
+  FROM Reward r, RewardCatalog rc
+  WHERE r.CatalogID = rc.CatalogID AND r.RewardID = rID;
+
+  IF status != 'Active' THEN
+    DBMS_OUTPUT.PUT_LINE('Reward is Inactive. Cannot Redeem.');
+  ELSIF curPoints < rewardPoints THEN
+    DBMS_OUTPUT.PUT_LINE('Insufficient points to redeem this reward.');
+  ELSIF curStock <= 0 THEN
+    DBMS_OUTPUT.PUT_LINE('Reward is out of stock.');
+  ELSE
+    UPDATE Reward SET Stock = Stock - 1 WHERE RewardID = rID;
+    COMMIT;
+    DBMS_OUTPUT.PUT_LINE('Redemption successful.');
+  END IF;
+END;` },
+
+  canRedeem: { by: "owi", kind: "Function", title: "CanRedeemReward", code:
+`CREATE OR REPLACE FUNCTION CanRedeemReward (
+  cID IN Customer.CustID%TYPE,
+  rID IN Reward.RewardID%TYPE
+) RETURN VARCHAR2 IS
+  custPoints   Point.PointsBalance%TYPE;
+  pointsNeeded Reward.PointsRequired%TYPE;
+BEGIN
+  SELECT PointsBalance INTO custPoints FROM Point WHERE CustID = cID;
+  SELECT PointsRequired INTO pointsNeeded FROM Reward WHERE RewardID = rID;
+  IF custPoints >= pointsNeeded THEN
+    RETURN 'YES, U CAN REDEEM';
+  ELSE
+    RETURN 'NO, U CANNOT REDEEM';
+  END IF;
+END;` },
+
+  checkStock: { by: "owi", kind: "Function", title: "CheckStock", code:
+`CREATE OR REPLACE FUNCTION CheckStock (p_RewardID VARCHAR2)
+RETURN VARCHAR2 IS
+  lastRestockDate DATE;
+  curStock        NUMBER(3);
+BEGIN
+  SELECT MAX(RestockingDate) INTO lastRestockDate
+  FROM Restocking WHERE RewardID = p_RewardID;
+  SELECT Stock INTO curStock FROM Reward WHERE RewardID = p_RewardID;
+
+  IF (SYSDATE - lastRestockDate > 60) AND (curStock <= 10) THEN
+    RETURN 'Low Stock and Overdue Restocking! Need to Restock!';
+  ELSIF (SYSDATE - lastRestockDate > 60) THEN
+    RETURN 'Restocking Overdue. Need to Restock!';
+  ELSIF (curStock <= 10) THEN
+    RETURN 'Insufficient Stock. Need to Restock!';
+  ELSE
+    RETURN 'Sufficient Stock';
+  END IF;
+END;` },
+
+  restock: { by: "owi", kind: "Stored Procedure", title: "RestockRewardItem", code:
+`CREATE OR REPLACE PROCEDURE RestockRewardItem (
+  rID VARCHAR2, rewID VARCHAR2, invID VARCHAR2,
+  qty NUMBER, suppID VARCHAR2
+) IS
+BEGIN
+  UPDATE Reward SET Stock = Stock + qty WHERE RewardID = rewID;
+  INSERT INTO Restocking (RestockID, RewardID, InventoryID,
+    RestockingDate, Quantity, SupplierID)
+  VALUES (rID, rewID, invID, SYSDATE, qty, suppID);
+  COMMIT;
+END;` },
+
+  earn: { by: "ng", kind: "Stored Procedure", title: "Earn_Points_After_Transaction", code:
+`CREATE OR REPLACE PROCEDURE Earn_Points_After_Transaction (
+  p_CustID IN NUMBER, p_TransactionAmount IN NUMBER
+) IS
+  v_EarnedPoints NUMBER;
+  v_PointID      VARCHAR2(5);
+BEGIN
+  v_EarnedPoints := FLOOR(p_TransactionAmount);  -- 1 point / RM1
+
+  SELECT PointID INTO v_PointID FROM Point
+  WHERE CustID = p_CustID AND PointStatus = 'Active' AND ROWNUM = 1;
+
+  UPDATE Point
+  SET PointsBalance     = PointsBalance + v_EarnedPoints,
+      TotalPointsEarned = TotalPointsEarned + v_EarnedPoints
+  WHERE PointID = v_PointID;
+
+  INSERT INTO PointRecord (RecordID, PointID, PointsChanged,
+    ChangedType, ChangeDate)
+  VALUES ('PR' || TO_CHAR(TRUNC(DBMS_RANDOM.VALUE(1000,9999))),
+    v_PointID, v_EarnedPoints, 'earned', SYSDATE);
+  COMMIT;
+END;` },
+
+  available: { by: "ng", kind: "Function", title: "Get_Available_Points", code:
+`CREATE OR REPLACE FUNCTION Get_Available_Points (p_CustID IN NUMBER)
+RETURN NUMBER IS
+  v_Points NUMBER;
+BEGIN
+  SELECT PointsBalance INTO v_Points FROM Point
+  WHERE CustID = p_CustID AND PointStatus = 'Active' AND ROWNUM = 1;
+  RETURN v_Points;
+END;` },
+
+  predict: { by: "ng", kind: "Function", title: "Predict_Tier_Upgrade", code:
+`CREATE OR REPLACE FUNCTION Predict_Tier_Upgrade (p_CustID IN NUMBER)
+RETURN VARCHAR2 IS
+  v_Points NUMBER;
+BEGIN
+  SELECT NVL(SUM(PointsBalance), 0) INTO v_Points
+  FROM Point WHERE CustID = p_CustID AND PointStatus = 'Active';
+
+  IF v_Points >= 5000 THEN RETURN 'Already Top Tier';
+  ELSIF v_Points >= 3000 THEN
+    RETURN 'Needs ' || (5000 - v_Points) || ' points to Top Tier';
+  ELSIF v_Points >= 1000 THEN
+    RETURN 'Needs ' || (3000 - v_Points) || ' points to Mid Tier';
+  ELSE
+    RETURN 'Needs ' || (1000 - v_Points) || ' points to Basic Tier';
+  END IF;
+END;` },
+
+  memberTier: { by: "yee", kind: "Function", title: "GetMemberTier", code:
+`CREATE OR REPLACE FUNCTION GetMemberTier (p_MemID IN Membership.MemID%TYPE)
+RETURN VARCHAR2 IS
+  v_TierName MembershipTier.TierName%TYPE;
+BEGIN
+  SELECT mt.TierName INTO v_TierName
+  FROM Membership m
+  JOIN MembershipTier mt ON m.MemTierID = mt.MemTierID
+  WHERE m.MemID = p_MemID;
+  RETURN v_TierName;
+EXCEPTION WHEN NO_DATA_FOUND THEN RETURN 'Not Found';
+END;` },
+
+  updateStatus: { by: "yee", kind: "Stored Procedure", title: "UpdateMembershipStatus", code:
+`CREATE OR REPLACE PROCEDURE UpdateMembershipStatus (
+  p_MemID    IN Membership.MemID%TYPE,
+  p_NewStatus IN Membership.Status%TYPE
+) IS
+BEGIN
+  IF p_NewStatus NOT IN ('Active', 'Inactive') THEN
+    DBMS_OUTPUT.PUT_LINE('Error: Invalid status provided.');
+    RETURN;
+  END IF;
+  UPDATE Membership SET Status = p_NewStatus WHERE MemID = p_MemID;
+  IF SQL%NOTFOUND THEN
+    DBMS_OUTPUT.PUT_LINE('Warning: Member not found.');
+  ELSE
+    DBMS_OUTPUT.PUT_LINE('Success: Status updated.');
+    COMMIT;
+  END IF;
+END;` },
+
+  paymentSummary: { by: "tan", kind: "Function", title: "Get_Customer_Total_Payment_Amount", code:
+`CREATE OR REPLACE FUNCTION Get_Customer_Total_Payment_Amount (p_CustID IN NUMBER)
+RETURN VARCHAR2 IS
+  v_total_transactions NUMBER := 0;
+  v_total_payments     NUMBER := 0;
+  v_total_history      NUMBER := 0;
+BEGIN
+  SELECT COUNT(*) INTO v_total_transactions
+  FROM Transaction WHERE CustID = p_CustID;
+
+  SELECT NVL(SUM(p.TotalAmount), 0) INTO v_total_payments
+  FROM Payment p, Transaction t
+  WHERE p.TransactionID = t.TransactionID AND t.CustID = p_CustID;
+
+  SELECT COUNT(*) INTO v_total_history
+  FROM TransactionHistory WHERE CustID = p_CustID;
+
+  RETURN 'Customer ' || p_CustID || ': ' || v_total_transactions
+    || ' transaction(s), Total Paid: RM' || v_total_payments
+    || ', ' || v_total_history || ' history record(s).';
+END;` },
+
+  updateTxn: { by: "tan", kind: "Stored Procedure", title: "Update_TransactionStatus_To_Completed", code:
+`CREATE OR REPLACE PROCEDURE Update_TransactionStatus_To_Completed
+  (p_TransactionID IN VARCHAR2) IS
+BEGIN
+  UPDATE Transaction SET TransactionStatus = 'Completed'
+  WHERE TransactionID = p_TransactionID AND TransactionStatus = 'Pending';
+  DBMS_OUTPUT.PUT_LINE('Transaction ' || p_TransactionID
+    || ' status updated to Completed.');
+END;` },
+
+  deleteFailed: { by: "tan", kind: "Stored Procedure", title: "Delete_Failed_Transactions", code:
+`CREATE OR REPLACE PROCEDURE Delete_Failed_Transactions IS
+  CURSOR failed_transactions IS
+    SELECT TransactionID, TransactionType FROM Transaction
+    WHERE TransactionStatus = 'Failed';
+  v_payment_id Payment.PaymentID%TYPE;
+BEGIN
+  FOR txn IN failed_transactions LOOP
+    IF txn.TransactionType = 'Redeem' THEN
+      DELETE FROM Redemption WHERE TransactionID = txn.TransactionID;
+    END IF;
+    BEGIN
+      SELECT PaymentID INTO v_payment_id FROM Payment
+      WHERE TransactionID = txn.TransactionID;
+      DELETE FROM Ewallet       WHERE PaymentID = v_payment_id;
+      DELETE FROM Card          WHERE PaymentID = v_payment_id;
+      DELETE FROM OnlineBanking WHERE PaymentID = v_payment_id;
+      DELETE FROM Payment       WHERE PaymentID = v_payment_id;
+    EXCEPTION WHEN NO_DATA_FOUND THEN NULL;
+    END;
+    DELETE FROM Transaction WHERE TransactionID = txn.TransactionID;
+  END LOOP;
+END;` },
+
+  catalogQuery: { by: "owi", kind: "Query", title: "Active reward catalog", code:
+`SELECT rc.CatalogID, rc.RewardName AS Catalog,
+       r.RewardID, r.RewardName AS Reward, r.PointsRequired
+FROM RewardCatalog rc
+JOIN Reward r ON rc.CatalogID = r.CatalogID
+WHERE rc.IsActive = 'Active'
+ORDER BY rc.CatalogID, r.RewardName;` },
+
+  pendingQuery: { by: "owi", kind: "Query", title: "Pending redemptions", code:
+`SELECT r.RedemptionID, c.CustName, rw.RewardName,
+       r.RedemptionDate, r.Status
+FROM Redemption r, Customer c, Reward rw
+WHERE r.CustID = c.CustID AND r.RewardID = rw.RewardID
+  AND r.Status = 'Pending'
+ORDER BY r.RedemptionDate ASC;` },
+};
+
+/* ---------- helpers ---------- */
+const money = (n) => "RM" + (n ?? 0).toFixed(2);
+const initials = (name) => name.split(" ").slice(0, 2).map((s) => s[0]).join("");
+
+/* ============================================================ */
+
+function App() {
+  const [view, setView] = useState("overview");
+  const [customers, setCustomers] = useState(SEED_CUSTOMERS);
+  const [memberships, setMemberships] = useState(
+    Object.fromEntries(Object.entries(MEMBERSHIPS).map(([k, v]) => [k, { ...v, status: ["M0002", "M0003", "M0005", "M0011"].includes(k) ? "Inactive" : "Active" }]))
+  );
+  const [points, setPoints] = useState(SEED_POINTS);
+  const [rewards, setRewards] = useState(SEED_REWARDS);
+  const [redemptions, setRedemptions] = useState(SEED_REDEMPTIONS);
+  const [transactions, setTransactions] = useState(SEED_TX);
+  const [selectedCust, setSelectedCust] = useState(10001);
+  const [toasts, setToasts] = useState([]);
+  const [flash, setFlash] = useState(null); // {key, kind}
+
+  const toast = (msg, kind = "info") => {
+    const id = Math.random().toString(36).slice(2);
+    setToasts((t) => [...t, { id, msg, kind }]);
+    setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 3800);
+  };
+  const pulse = (key) => { setFlash(key); setTimeout(() => setFlash(null), 700); };
+
+  /* ---- business logic (mirrors the PL/SQL) ---- */
+  const earnPoints = (custId, amount) => {
+    const p = points[custId];
+    if (!p || p.status !== "Active") { toast("No active points account for this customer.", "err"); return; }
+    const earned = Math.floor(amount);
+    setPoints((s) => ({ ...s, [custId]: { ...s[custId], bal: s[custId].bal + earned, earned: s[custId].earned + earned } }));
+    pulse("bal");
+    toast(`+${earned} points earned from ${money(amount)} spend.`, "ok");
+  };
+
+  const redeemReward = (custId, rewardId) => {
+    const r = rewards.find((x) => x.id === rewardId);
+    const p = points[custId];
+    const catActive = CATALOG[r.cat].active;
+    if (!catActive) { toast("Reward is inactive. Cannot redeem.", "err"); return; }
+    if ((p?.bal ?? 0) < r.pts) { toast("Insufficient points to redeem this reward.", "err"); return; }
+    if (r.stock <= 0) { toast("Reward is out of stock.", "err"); return; }
+    setRewards((s) => s.map((x) => (x.id === rewardId ? { ...x, stock: x.stock - 1 } : x)));
+    setPoints((s) => ({ ...s, [custId]: { ...s[custId], bal: s[custId].bal - r.pts, used: s[custId].used + r.pts } }));
+    toast(`Redemption successful — ${r.name} (−${r.pts} pts).`, "ok");
+  };
+
+  const restock = (rewardId, qty) => {
+    setRewards((s) => s.map((x) => (x.id === rewardId ? { ...x, stock: x.stock + qty, lastRestock: "2025-07-19" } : x)));
+    toast(`Restocked +${qty} units.`, "ok");
+  };
+
+  const checkStock = (r) => {
+    const days = (new Date("2025-07-19") - new Date(r.lastRestock)) / 86400000;
+    if (days > 60 && r.stock <= 10) return { txt: "Low stock & overdue restocking", tone: "err" };
+    if (days > 60) return { txt: "Restocking overdue", tone: "warn" };
+    if (r.stock <= 10) return { txt: "Insufficient stock", tone: "warn" };
+    return { txt: "Sufficient stock", tone: "ok" };
+  };
+
+  const predictTier = (custId) => {
+    const pts = points[custId]?.status === "Active" ? points[custId].bal : 0;
+    if (pts >= 5000) return "Already top tier";
+    if (pts >= 3000) return `Needs ${5000 - pts} pts to top tier`;
+    if (pts >= 1000) return `Needs ${3000 - pts} pts to mid tier`;
+    return `Needs ${1000 - pts} pts to basic tier`;
+  };
+
+  const setMembershipStatus = (memId, status) => {
+    setMemberships((s) => ({ ...s, [memId]: { ...s[memId], status } }));
+    toast(`Membership ${memId} set to ${status}.`, "ok");
+  };
+
+  const updateTxn = (txnId) => {
+    setTransactions((s) => s.map((t) => (t.id === txnId && t.status === "Pending" ? { ...t, status: "Completed" } : t)));
+    toast(`Transaction ${txnId} marked Completed.`, "ok");
+  };
+
+  const processRedemption = (rid, outcome) => {
+    setRedemptions((s) => s.map((r) => (r.id === rid ? { ...r, status: outcome } : r)));
+    toast(`Redemption ${rid} → ${outcome}.`, outcome === "Completed" ? "ok" : "warn");
+  };
+
+  const deleteFailed = () => {
+    const n = transactions.filter((t) => t.status === "Failed").length;
+    if (!n) { toast("No failed transactions to clean up.", "info"); return; }
+    setTransactions((s) => s.filter((t) => t.status !== "Failed"));
+    setRedemptions((s) => s.filter((r) => r.status !== "Failed"));
+    toast(`Deleted ${n} failed transaction(s) and cascaded child rows.`, "ok");
+  };
+
+  const nav = [
+    { id: "overview", label: "Overview", icon: IconGrid },
+    { id: "members", label: "Members", icon: IconUser },
+    { id: "rewards", label: "Rewards", icon: IconGift },
+    { id: "redemptions", label: "Redemptions", icon: IconTicket },
+    { id: "transactions", label: "Transactions", icon: IconSwap },
+  ];
+
+  return (
+    <div className="fr-root">
+      <style>{FONT_CSS}{STYLES}</style>
+
+      {/* toasts */}
+      <div className="fr-toasts">
+        {toasts.map((t) => (
+          <div key={t.id} className={`fr-toast fr-toast-${t.kind}`}>
+            <span className="fr-toast-dot" />{t.msg}
+          </div>
+        ))}
+      </div>
+
+      <aside className="fr-side">
+        <div className="fr-brand">
+          <div className="fr-logo">🍔</div>
+          <div>
+            <div className="fr-brand-name">The Foodie</div>
+            <div className="fr-brand-sub">Rewards Console</div>
+          </div>
+        </div>
+        <nav className="fr-nav">
+          {nav.map((n) => (
+            <button key={n.id} className={`fr-nav-btn ${view === n.id ? "on" : ""}`} onClick={() => setView(n.id)}>
+              <n.icon /> {n.label}
+            </button>
+          ))}
+        </nav>
+        <div className="fr-side-foot">
+          <div className="fr-side-foot-title">Group G37 · UCCD2303</div>
+          <div className="fr-members-legend">
+            {Object.entries(MEMBERS).map(([k, m]) => (
+              <span key={k} className="fr-legend-chip" title={m.name}>
+                <span className="fr-avatar" style={{ background: m.color }}>{m.short}</span>
+                {m.name.split(" ")[0]} {m.name.split(" ")[1]?.[0]}.
+              </span>
+            ))}
+          </div>
+        </div>
+      </aside>
+
+      <main className="fr-main">
+        {view === "overview" && (
+          <Overview customers={customers} points={points} rewards={rewards} redemptions={redemptions} memberships={memberships} setView={setView} />
+        )}
+        {view === "members" && (
+          <Members
+            customers={customers} memberships={memberships} points={points}
+            selected={selectedCust} setSelected={setSelectedCust}
+            earnPoints={earnPoints} predictTier={predictTier} setMembershipStatus={setMembershipStatus}
+            flash={flash}
+          />
+        )}
+        {view === "rewards" && (
+          <Rewards rewards={rewards} points={points} selectedCust={selectedCust} setSelectedCust={setSelectedCust}
+            customers={customers} redeemReward={redeemReward} restock={restock} checkStock={checkStock} toast={toast} />
+        )}
+        {view === "redemptions" && (
+          <Redemptions redemptions={redemptions} customers={customers} rewards={rewards} process={processRedemption} />
+        )}
+        {view === "transactions" && (
+          <Transactions transactions={transactions} customers={customers} updateTxn={updateTxn} deleteFailed={deleteFailed} />
+        )}
+      </main>
+    </div>
+  );
+}
+
+/* ============================================================
+   Sections
+   ============================================================ */
+
+function Overview({ customers, points, rewards, redemptions, memberships, setView }) {
+  const activeMembers = Object.values(memberships).filter((m) => m.status === "Active").length;
+  const circulating = Object.values(points).reduce((a, p) => a + (p.status === "Active" ? p.bal : 0), 0);
+  const pending = redemptions.filter((r) => r.status === "Pending").length;
+  const lowStock = rewards.filter((r) => r.stock <= 10).length;
+
+  const tierCounts = {};
+  Object.values(memberships).forEach((m) => { tierCounts[m.tier] = (tierCounts[m.tier] || 0) + 1; });
+  const maxTier = Math.max(...Object.values(tierCounts));
+
+  return (
+    <div className="fr-page">
+      <Header eyebrow="Grand Wooly · Loyalty Platform" title="Reward & Point Management" sub="An interface of the fast-food loyalty system — members earn points, climb tiers, and redeem rewards. Each control on the following screens runs the actual PL/SQL." />
+
+      <div className="fr-stats">
+        <Stat label="Registered customers" value={customers.length} accent="#E8663A" />
+        <Stat label="Active memberships" value={activeMembers} accent="#2E9E6B" />
+        <Stat label="Points in circulation" value={circulating.toLocaleString()} accent="#D9A521" />
+        <Stat label="Pending redemptions" value={pending} accent="#3D7EDB" onClick={() => setView("redemptions")} />
+      </div>
+
+      <div className="fr-grid-2">
+        <Card title="Membership tiers" hint="Distribution across the five loyalty levels">
+          <div className="fr-tier-bars">
+            {Object.entries(TIERS).map(([id, t]) => (
+              <div key={id} className="fr-tier-row">
+                <span className="fr-tier-dot" style={{ background: t.color }} />
+                <span className="fr-tier-name">{t.name}</span>
+                <div className="fr-tier-track">
+                  <div className="fr-tier-fill" style={{ width: `${((tierCounts[id] || 0) / maxTier) * 100}%`, background: t.color }} />
+                </div>
+                <span className="fr-tier-count">{tierCounts[id] || 0}</span>
+              </div>
+            ))}
+          </div>
+        </Card>
+
+        <Card title="Contributions" hint="Queries, stored procedures, and functions owned by each member">
+          <div className="fr-map">
+            {Object.entries(MEMBERS).map(([k, m]) => (
+              <div key={k} className="fr-map-row">
+                <span className="fr-avatar" style={{ background: m.color }}>{m.short}</span>
+                <div>
+                  <div className="fr-map-name">{m.name}</div>
+                  <div className="fr-map-owns">{ownsOf(k)}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      </div>
+
+      <div className="fr-callout">
+        <span className="fr-callout-icon">💡</span>
+        <div>
+          <strong>Tips.</strong> Every control on these screens changes the data live — record a purchase and watch the points climb, or redeem a reward and see the stock and balance drop instantly.
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ownsOf(k) {
+  const map = {
+    ng: "Earn points · Available points · Tier prediction",
+    owi: "Redeem reward · Restock · Stock check · Can-redeem · Catalog & pending queries",
+    tan: "Complete transaction · Delete failed txns · Payment summary · Status lookup",
+    yee: "Member tier lookup · Update membership status · Promotion & benefit queries",
+  };
+  return map[k];
+}
+
+/* ---------------- Members ---------------- */
+function Members({ customers, memberships, points, selected, setSelected, earnPoints, predictTier, setMembershipStatus, flash }) {
+  const [q, setQ] = useState("");
+  const [amount, setAmount] = useState(120);
+  const cust = customers.find((c) => c.id === selected);
+  const mem = memberships[cust.memId];
+  const tier = TIERS[mem.tier];
+  const p = points[selected];
+  const filtered = customers.filter((c) => c.name.toLowerCase().includes(q.toLowerCase()) || String(c.id).includes(q));
+
+  return (
+    <div className="fr-page">
+      <Header eyebrow="Customer service" title="Members" sub="Look up a customer to see their tier, points, and history — then simulate the transactions staff perform on their account." />
+      <div className="fr-split">
+        <div className="fr-list-col">
+          <input className="fr-search" placeholder="Search name or ID…" value={q} onChange={(e) => setQ(e.target.value)} />
+          <div className="fr-list">
+            {filtered.map((c) => {
+              const m = memberships[c.memId];
+              const t = TIERS[m.tier];
+              return (
+                <button key={c.id} className={`fr-list-item ${selected === c.id ? "on" : ""}`} onClick={() => setSelected(c.id)}>
+                  <span className="fr-avatar sm" style={{ background: t.color }}>{initials(c.name)}</span>
+                  <span className="fr-li-body">
+                    <span className="fr-li-name">{c.name}</span>
+                    <span className="fr-li-sub">#{c.id} · {t.name}</span>
+                  </span>
+                  <span className={`fr-dot-status ${m.status === "Active" ? "ok" : "off"}`} />
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="fr-detail-col">
+          <div className="fr-profile">
+            <div className="fr-profile-head">
+              <span className="fr-avatar lg" style={{ background: tier.color }}>{initials(cust.name)}</span>
+              <div>
+                <div className="fr-profile-name">{cust.name}</div>
+                <div className="fr-profile-meta">#{cust.id} · {cust.email}</div>
+              </div>
+              <span className="fr-tier-badge" style={{ background: tier.color + "22", color: tier.color, borderColor: tier.color + "55" }}>
+                <TierChip fn /> {tier.name}
+              </span>
+            </div>
+
+            <div className="fr-profile-stats">
+              <div className={`fr-pstat ${flash === "bal" ? "flash" : ""}`}>
+                <div className="fr-pstat-label">Points balance</div>
+                <div className="fr-pstat-value">{p.status === "Active" ? p.bal.toLocaleString() : 0}</div>
+                <SqlTag id="available" />
+              </div>
+              <div className="fr-pstat">
+                <div className="fr-pstat-label">Lifetime earned</div>
+                <div className="fr-pstat-value">{p.earned.toLocaleString()}</div>
+              </div>
+              <div className="fr-pstat">
+                <div className="fr-pstat-label">Total redeemed</div>
+                <div className="fr-pstat-value">{p.used.toLocaleString()}</div>
+              </div>
+              <div className="fr-pstat">
+                <div className="fr-pstat-label">Total paid</div>
+                <div className="fr-pstat-value">{money(PAYMENTS[cust.id] || 0)}</div>
+                <SqlTag id="paymentSummary" />
+              </div>
+            </div>
+
+            <div className="fr-predict">
+              <div>
+                <div className="fr-predict-label">Next tier</div>
+                <div className="fr-predict-value">{predictTier(cust.id)}</div>
+              </div>
+              <SqlTag id="predict" inline />
+            </div>
+          </div>
+
+          <div className="fr-action-card">
+            <div className="fr-action-title">Record a purchase <span className="fr-muted">— earns 1 point per RM1</span></div>
+            <div className="fr-action-row">
+              <div className="fr-input-money">
+                <span>RM</span>
+                <input type="number" min="1" value={amount} onChange={(e) => setAmount(Number(e.target.value))} />
+              </div>
+              <button className="fr-btn primary" onClick={() => earnPoints(cust.id, amount)} disabled={p.status !== "Active"}>
+                Earn points
+              </button>
+              <SqlTag id="earn" />
+            </div>
+            {p.status !== "Active" && <div className="fr-note">This account's points have expired — earning is disabled until reactivated.</div>}
+          </div>
+
+          <div className="fr-action-card">
+            <div className="fr-action-title">Membership status <span className="fr-muted">— currently {mem.status}</span></div>
+            <div className="fr-action-row">
+              <button className={`fr-btn ${mem.status === "Active" ? "ghost on-ok" : ""}`} onClick={() => setMembershipStatus(cust.memId, "Active")}>Active</button>
+              <button className={`fr-btn ${mem.status === "Inactive" ? "ghost on-off" : ""}`} onClick={() => setMembershipStatus(cust.memId, "Inactive")}>Inactive</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------------- Rewards ---------------- */
+function Rewards({ rewards, points, selectedCust, setSelectedCust, customers, redeemReward, restock, checkStock, toast }) {
+  const [catFilter, setCatFilter] = useState("all");
+  const cust = customers.find((c) => c.id === selectedCust);
+  const bal = points[selectedCust]?.status === "Active" ? points[selectedCust].bal : 0;
+  const cats = ["all", ...Object.keys(CATALOG)];
+  const shown = rewards.filter((r) => catFilter === "all" || r.cat === catFilter);
+
+  return (
+    <div className="fr-page">
+      <Header eyebrow="Reward catalog" title="Rewards" sub="Browse the catalog the way a customer would. Redeeming validates catalog status, points, and stock — exactly like the RedeemRewards procedure." />
+
+      <div className="fr-reward-bar">
+        <div className="fr-redeem-as">
+          <span className="fr-tiny">Redeeming as</span>
+          <select value={selectedCust} onChange={(e) => setSelectedCust(Number(e.target.value))} className="fr-select">
+            {customers.map((c) => <option key={c.id} value={c.id}>{c.name} (#{c.id})</option>)}
+          </select>
+          <span className="fr-bal-pill">{bal.toLocaleString()} pts available</span>
+        </div>
+        <div className="fr-cat-tabs">
+          {cats.map((c) => (
+            <button key={c} className={`fr-cat-tab ${catFilter === c ? "on" : ""}`} onClick={() => setCatFilter(c)}>
+              {c === "all" ? "All" : CATALOG[c].name}
+              {c !== "all" && !CATALOG[c].active && <span className="fr-inactive-mark">inactive</span>}
+            </button>
+          ))}
+          <SqlTag id="catalogQuery" inline />
+        </div>
+      </div>
+
+      <div className="fr-reward-grid">
+        {shown.map((r) => {
+          const cat = CATALOG[r.cat];
+          const canAfford = bal >= r.pts;
+          const stockInfo = checkStock(r);
+          const blocked = !cat.active || r.stock <= 0;
+          return (
+            <div key={r.id} className={`fr-reward-card ${!cat.active ? "muted" : ""}`}>
+              <div className="fr-reward-top">
+                <span className="fr-reward-emoji">{emojiFor(r.type)}</span>
+                <span className={`fr-stock-tag ${stockInfo.tone}`}>{r.stock} in stock</span>
+              </div>
+              <div className="fr-reward-name">{r.name}</div>
+              <div className="fr-reward-cat">{cat.name}{!cat.active && " · inactive"}</div>
+              <div className="fr-reward-foot">
+                <span className="fr-pts">{r.pts} <span>pts</span></span>
+                <button
+                  className={`fr-btn sm ${blocked ? "" : canAfford ? "primary" : "warnbtn"}`}
+                  disabled={blocked}
+                  onClick={() => redeemReward(selectedCust, r.id)}
+                >
+                  {!cat.active ? "Unavailable" : r.stock <= 0 ? "Out of stock" : "Redeem"}
+                </button>
+              </div>
+              <div className="fr-reward-actions">
+                <span className={`fr-check ${stockInfo.tone}`}>{stockInfo.txt}</span>
+                <div className="fr-reward-mini">
+                  <button className="fr-mini-btn" onClick={() => restock(r.id, 20)}>+20 restock</button>
+                </div>
+              </div>
+              <div className="fr-reward-can">
+                <span className={`fr-check ${canAfford ? "ok" : "err"}`}>{canAfford ? "You can redeem this" : "Not enough points"}</span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/* ---------------- Redemptions ---------------- */
+function Redemptions({ redemptions, customers, rewards, process }) {
+  const nameOf = (id) => customers.find((c) => c.id === id)?.name || id;
+  const rewardOf = (id) => rewards.find((r) => r.id === id)?.name || id;
+  const order = { Pending: 0, Completed: 1, Failed: 2 };
+  const sorted = [...redemptions].sort((a, b) => order[a.status] - order[b.status]);
+
+  return (
+    <div className="fr-page">
+      <Header eyebrow="Fulfilment queue" title="Redemptions" sub="The staff worklist. Pending requests sit at the top — approve to complete, or cancel to release them." />
+      <div className="fr-table">
+        <div className="fr-tr fr-th">
+          <span>ID</span><span>Customer</span><span>Reward</span><span>Points</span><span>Date</span><span>Status</span><span>Action</span>
+        </div>
+        {sorted.map((r) => (
+          <div key={r.id} className="fr-tr">
+            <span className="fr-mono">{r.id}</span>
+            <span>{nameOf(r.cust)}</span>
+            <span>{rewardOf(r.reward)}</span>
+            <span className="fr-mono">{r.pts}</span>
+            <span className="fr-muted">{r.date}</span>
+            <span><StatusPill status={r.status} /></span>
+            <span>
+              {r.status === "Pending" ? (
+                <span className="fr-inline-actions">
+                  <button className="fr-btn xs primary" onClick={() => process(r.id, "Completed")}>Approve</button>
+                  <button className="fr-btn xs" onClick={() => process(r.id, "Failed")}>Cancel</button>
+                </span>
+              ) : <span className="fr-tiny fr-muted">—</span>}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ---------------- Transactions ---------------- */
+function Transactions({ transactions, customers, updateTxn, deleteFailed }) {
+  const [filter, setFilter] = useState("all");
+  const nameOf = (id) => customers.find((c) => c.id === id)?.name || id;
+  const shown = transactions.filter((t) => filter === "all" || t.status === filter);
+  const failedCount = transactions.filter((t) => t.status === "Failed").length;
+
+  return (
+    <div className="fr-page">
+      <Header eyebrow="Ledger" title="Transactions" sub="Every earn and redeem event. Complete pending ones, or clean up failed transactions and their linked payment records in one pass." />
+
+      <div className="fr-tx-bar">
+        <div className="fr-cat-tabs">
+          {["all", "Completed", "Pending", "Failed"].map((f) => (
+            <button key={f} className={`fr-cat-tab ${filter === f ? "on" : ""}`} onClick={() => setFilter(f)}>{f === "all" ? "All" : f}</button>
+          ))}
+        </div>
+        <div className="fr-tx-cleanup">
+          <SqlTag id="deleteFailed" inline />
+          <button className="fr-btn danger sm" onClick={deleteFailed} disabled={!failedCount}>
+            Delete failed ({failedCount})
+          </button>
+        </div>
+      </div>
+
+      <div className="fr-table">
+        <div className="fr-tr fr-th tx">
+          <span>ID</span><span>Type</span><span>Customer</span><span>Earned</span><span>Redeemed</span><span>Date</span><span>Status</span><span>Action</span>
+        </div>
+        {shown.map((t) => (
+          <div key={t.id} className="fr-tr tx">
+            <span className="fr-mono">{t.id}</span>
+            <span><TypePill type={t.type} /></span>
+            <span>{nameOf(t.cust)}</span>
+            <span className="fr-mono">{t.earned || "—"}</span>
+            <span className="fr-mono">{t.redeemed || "—"}</span>
+            <span className="fr-muted">{t.date}</span>
+            <span><StatusPill status={t.status} /></span>
+            <span>
+              {t.status === "Pending"
+                ? <span className="fr-inline-actions"><button className="fr-btn xs primary" onClick={() => updateTxn(t.id)}>Complete</button><SqlTag id="updateTxn" inline /></span>
+                : <span className="fr-tiny fr-muted">—</span>}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================
+   Shared components
+   ============================================================ */
+
+function Header({ eyebrow, title, sub }) {
+  return (
+    <div className="fr-header">
+      <div className="fr-eyebrow">{eyebrow}</div>
+      <h1 className="fr-h1">{title}</h1>
+      <p className="fr-sub">{sub}</p>
+    </div>
+  );
+}
+
+function Stat({ label, value, accent, onClick }) {
+  return (
+    <div className={`fr-stat ${onClick ? "clickable" : ""}`} onClick={onClick}>
+      <div className="fr-stat-accent" style={{ background: accent }} />
+      <div className="fr-stat-value">{value}</div>
+      <div className="fr-stat-label">{label}</div>
+    </div>
+  );
+}
+
+function Card({ title, hint, children }) {
+  return (
+    <div className="fr-card">
+      <div className="fr-card-title">{title}</div>
+      {hint && <div className="fr-card-hint">{hint}</div>}
+      <div className="fr-card-body">{children}</div>
+    </div>
+  );
+}
+
+function StatusPill({ status }) {
+  const map = { Completed: "ok", Active: "ok", Pending: "warn", Failed: "err", Inactive: "off" };
+  return <span className={`fr-pill ${map[status]}`}>{status}</span>;
+}
+function TypePill({ type }) {
+  return <span className={`fr-typepill ${type === "Earn" ? "earn" : "redeem"}`}>{type}</span>;
+}
+function TierChip() { return <span style={{ fontSize: 11 }}>◆</span>; }
+
+/* --- the signature element: SQL reveal tagged to its author --- */
+function SqlTag() { return null; }
+
+/* ---------- tiny inline icons ---------- */
+function IconGrid() { return <svg viewBox="0 0 24 24" className="fr-ic"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>; }
+function IconUser() { return <svg viewBox="0 0 24 24" className="fr-ic"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>; }
+function IconGift() { return <svg viewBox="0 0 24 24" className="fr-ic"><rect x="3" y="8" width="18" height="13" rx="1.5"/><path d="M3 12h18M12 8v13M12 8s-3-6-6-3 6 3 6 3zm0 0s3-6 6-3-6 3-6 3z"/></svg>; }
+function IconTicket() { return <svg viewBox="0 0 24 24" className="fr-ic"><path d="M4 8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2 2 2 0 0 0 0 4 2 2 0 0 1 0 4 2 2 0 0 1-2 2H6a2 2 0 0 1-2-2 2 2 0 0 0 0-4 2 2 0 0 1 0-4z"/></svg>; }
+function IconSwap() { return <svg viewBox="0 0 24 24" className="fr-ic"><path d="M4 9h13l-3-3M20 15H7l3 3"/></svg>; }
+
+function emojiFor(type) {
+  const m = { Food: "🍗", "Food Add-on": "🍟", Dessert: "🍨", Merchandise: "🎁", Beverage: "🥤", Seasonal: "🎄", Collectible: "🧸" };
+  return m[type] || "🎁";
+}
+
+/* ============================================================
+   Styles
+   ============================================================ */
+const STYLES = `
+.fr-root{--ink:#191A1F;--ink2:#22242B;--paper:#F6F5F2;--panel:#FFFFFF;--line:#E7E4DD;--txt:#2A2B31;--muted:#8A8A93;--brand:#E8663A;--brand2:#D9A521;--ok:#2E9E6B;--warn:#D98C1F;--err:#D8483A;
+  display:flex;min-height:640px;height:100%;font-family:'Inter',system-ui,sans-serif;color:var(--txt);background:var(--paper);border-radius:14px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.fr-root *{box-sizing:border-box}
+.fr-ic{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;flex:none}
+
+/* sidebar */
+.fr-side{width:236px;flex:none;background:var(--ink);color:#EDEDF0;display:flex;flex-direction:column;padding:20px 14px}
+.fr-brand{display:flex;align-items:center;gap:11px;padding:4px 8px 20px}
+.fr-logo{width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,#E8663A,#D9A521);display:grid;place-items:center;font-size:20px}
+.fr-brand-name{font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:17px;letter-spacing:-.02em}
+.fr-brand-sub{font-size:11px;color:#9A9AA5;letter-spacing:.04em;text-transform:uppercase}
+.fr-nav{display:flex;flex-direction:column;gap:3px;margin-top:4px}
+.fr-nav-btn{display:flex;align-items:center;gap:11px;background:none;border:none;color:#B9B9C2;font:inherit;font-size:14px;font-weight:500;padding:10px 12px;border-radius:9px;cursor:pointer;text-align:left;transition:.15s}
+.fr-nav-btn:hover{background:#26272E;color:#fff}
+.fr-nav-btn.on{background:linear-gradient(90deg,rgba(232,102,58,.22),rgba(232,102,58,.05));color:#fff;box-shadow:inset 2px 0 0 var(--brand)}
+.fr-side-foot{margin-top:auto;padding:14px 8px 0;border-top:1px solid #2C2D35}
+.fr-side-foot-title{font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:#8687920;color:#868692;margin-bottom:10px}
+.fr-members-legend{display:flex;flex-direction:column;gap:7px}
+.fr-legend-chip{display:flex;align-items:center;gap:8px;font-size:12px;color:#C9C9D2}
+
+/* avatars */
+.fr-avatar{display:inline-grid;place-items:center;width:30px;height:30px;border-radius:8px;color:#fff;font-weight:700;font-size:11px;flex:none;letter-spacing:.02em}
+.fr-avatar.xs{width:17px;height:17px;font-size:8px;border-radius:5px}
+.fr-avatar.sm{width:34px;height:34px;font-size:12px}
+.fr-avatar.lg{width:52px;height:52px;font-size:17px;border-radius:12px}
+
+/* main */
+.fr-main{flex:1;overflow-y:auto}
+.fr-page{padding:34px 48px 60px;max-width:1720px;margin:0 auto;width:100%}
+.fr-header{margin-bottom:26px}
+.fr-eyebrow{font-size:11.5px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--brand);margin-bottom:9px}
+.fr-h1{font-family:'Bricolage Grotesque',sans-serif;font-size:33px;font-weight:800;letter-spacing:-.025em;margin:0 0 9px;color:var(--ink)}
+.fr-sub{margin:0;color:var(--muted);font-size:14.5px;line-height:1.55;max-width:1300px}
+
+/* stats */
+.fr-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px}
+.fr-stat{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:18px 18px 16px;overflow:hidden}
+.fr-stat.clickable{cursor:pointer;transition:.15s}
+.fr-stat.clickable:hover{transform:translateY(-2px);box-shadow:0 6px 18px rgba(0,0,0,.07)}
+.fr-stat-accent{position:absolute;top:0;left:0;right:0;height:3px}
+.fr-stat-value{font-family:'Bricolage Grotesque',sans-serif;font-size:30px;font-weight:700;letter-spacing:-.02em;color:var(--ink);line-height:1}
+.fr-stat-label{font-size:12.5px;color:var(--muted);margin-top:7px}
+
+/* grid + cards */
+.fr-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px}
+.fr-card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px 22px}
+.fr-card-title{font-weight:700;font-size:15px;color:var(--ink);font-family:'Bricolage Grotesque',sans-serif}
+.fr-card-hint{font-size:12.5px;color:var(--muted);margin-top:3px;margin-bottom:16px}
+.fr-card-body{}
+
+.fr-tier-bars{display:flex;flex-direction:column;gap:12px}
+.fr-tier-row{display:flex;align-items:center;gap:10px}
+.fr-tier-dot{width:9px;height:9px;border-radius:50%;flex:none}
+.fr-tier-name{width:64px;font-size:13px;font-weight:500}
+.fr-tier-track{flex:1;height:8px;background:#EFEDE7;border-radius:5px;overflow:hidden}
+.fr-tier-fill{height:100%;border-radius:5px;transition:width .5s cubic-bezier(.2,.7,.3,1)}
+.fr-tier-count{width:22px;text-align:right;font-size:13px;font-weight:600;color:var(--muted)}
+
+.fr-map{display:flex;flex-direction:column;gap:13px}
+.fr-map-row{display:flex;gap:11px;align-items:flex-start}
+.fr-map-name{font-weight:600;font-size:13.5px}
+.fr-map-owns{font-size:12px;color:var(--muted);line-height:1.4}
+
+.fr-callout{display:flex;gap:13px;background:linear-gradient(90deg,rgba(232,102,58,.08),rgba(217,165,33,.05));border:1px solid rgba(232,102,58,.25);border-radius:13px;padding:16px 18px;font-size:13.5px;line-height:1.55}
+.fr-callout-icon{font-size:18px}
+.fr-callout em{font-style:normal;font-weight:600;color:var(--brand)}
+
+/* split (members) */
+.fr-split{display:grid;grid-template-columns:290px 1fr;gap:18px}
+.fr-list-col{}
+.fr-search{width:100%;padding:10px 13px;border:1px solid var(--line);border-radius:10px;font:inherit;font-size:13.5px;background:var(--panel);margin-bottom:11px;outline:none}
+.fr-search:focus{border-color:var(--brand)}
+.fr-list{display:flex;flex-direction:column;gap:4px;max-height:560px;overflow-y:auto}
+.fr-list-item{display:flex;align-items:center;gap:11px;background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:10px 12px;cursor:pointer;font:inherit;text-align:left;transition:.13s}
+.fr-list-item:hover{border-color:#D5D1C7}
+.fr-list-item.on{border-color:var(--brand);box-shadow:0 0 0 1px var(--brand)}
+.fr-li-body{display:flex;flex-direction:column;flex:1;min-width:0}
+.fr-li-name{font-weight:600;font-size:13.5px}
+.fr-li-sub{font-size:11.5px;color:var(--muted)}
+.fr-dot-status{width:8px;height:8px;border-radius:50%;flex:none}
+.fr-dot-status.ok{background:var(--ok)}
+.fr-dot-status.off{background:#C4C4CC}
+
+.fr-detail-col{display:flex;flex-direction:column;gap:14px}
+.fr-profile{background:var(--panel);border:1px solid var(--line);border-radius:15px;padding:22px}
+.fr-profile-head{display:flex;align-items:center;gap:14px}
+.fr-profile-name{font-family:'Bricolage Grotesque',sans-serif;font-size:20px;font-weight:700;letter-spacing:-.02em}
+.fr-profile-meta{font-size:12.5px;color:var(--muted)}
+.fr-tier-badge{margin-left:auto;display:flex;align-items:center;gap:6px;padding:6px 13px;border-radius:20px;font-size:12.5px;font-weight:700;border:1px solid}
+.fr-profile-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:20px}
+.fr-pstat{background:var(--paper);border:1px solid var(--line);border-radius:11px;padding:13px 14px;position:relative;transition:.2s}
+.fr-pstat.flash{box-shadow:0 0 0 2px var(--ok);background:rgba(46,158,107,.08)}
+.fr-pstat-label{font-size:11px;color:var(--muted);margin-bottom:5px}
+.fr-pstat-value{font-family:'Bricolage Grotesque',sans-serif;font-size:22px;font-weight:700;letter-spacing:-.02em;color:var(--ink)}
+.fr-predict{display:flex;align-items:center;gap:14px;margin-top:14px;padding:13px 15px;background:linear-gradient(90deg,rgba(217,165,33,.12),transparent);border:1px solid rgba(217,165,33,.3);border-radius:11px}
+.fr-predict-label{font-size:11px;color:var(--muted)}
+.fr-predict-value{font-weight:700;font-size:14.5px;color:var(--ink);margin-top:2px}
+
+.fr-action-card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:17px 19px}
+.fr-action-title{font-weight:600;font-size:14px;margin-bottom:13px}
+.fr-action-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.fr-input-money{display:flex;align-items:center;gap:5px;border:1px solid var(--line);border-radius:9px;padding:0 11px;background:var(--paper)}
+.fr-input-money span{color:var(--muted);font-size:13px;font-weight:600}
+.fr-input-money input{width:78px;border:none;background:none;font:inherit;font-size:14px;padding:9px 0;outline:none}
+.fr-muted{color:var(--muted);font-weight:400}
+.fr-note{font-size:12px;color:var(--warn);margin-top:10px}
+.fr-flex{flex:1}
+.fr-tiny{font-size:11.5px;color:var(--muted);display:inline-flex;align-items:center;gap:6px}
+
+/* buttons */
+.fr-btn{border:1px solid var(--line);background:var(--panel);color:var(--txt);font:inherit;font-weight:600;font-size:13px;padding:9px 15px;border-radius:9px;cursor:pointer;transition:.14s;white-space:nowrap}
+.fr-btn:hover{border-color:#C9C5BB}
+.fr-btn.primary{background:var(--brand);border-color:var(--brand);color:#fff}
+.fr-btn.primary:hover{background:#d9572e}
+.fr-btn.primary:disabled,.fr-btn:disabled{opacity:.45;cursor:not-allowed}
+.fr-btn.danger{background:#fff;border-color:rgba(216,72,58,.5);color:var(--err)}
+.fr-btn.danger:hover:not(:disabled){background:rgba(216,72,58,.08)}
+.fr-btn.warnbtn{background:#fff;border-color:rgba(217,140,31,.5);color:var(--warn)}
+.fr-btn.ghost.on-ok{background:rgba(46,158,107,.12);border-color:var(--ok);color:var(--ok)}
+.fr-btn.ghost.on-off{background:rgba(140,140,150,.12);border-color:#9A9AA3;color:#6c6c74}
+.fr-btn.sm{padding:7px 13px;font-size:12.5px}
+.fr-btn.xs{padding:5px 11px;font-size:12px;border-radius:7px}
+
+/* rewards */
+.fr-reward-bar{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:18px;flex-wrap:wrap}
+.fr-redeem-as{display:flex;align-items:center;gap:9px}
+.fr-select{border:1px solid var(--line);border-radius:9px;padding:8px 11px;font:inherit;font-size:13px;background:var(--panel);outline:none;cursor:pointer}
+.fr-bal-pill{background:rgba(217,165,33,.14);color:#a37c10;font-weight:700;font-size:12.5px;padding:7px 13px;border-radius:20px}
+.fr-cat-tabs{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.fr-cat-tab{border:1px solid var(--line);background:var(--panel);font:inherit;font-size:12.5px;font-weight:500;padding:7px 13px;border-radius:20px;cursor:pointer;transition:.13s;display:flex;align-items:center;gap:6px}
+.fr-cat-tab:hover{border-color:#C9C5BB}
+.fr-cat-tab.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.fr-inactive-mark{font-size:9px;background:rgba(216,72,58,.15);color:var(--err);padding:1px 5px;border-radius:6px;text-transform:uppercase;letter-spacing:.03em}
+
+.fr-reward-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(236px,1fr));gap:14px}
+.fr-reward-card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 16px 14px;display:flex;flex-direction:column;transition:.15s}
+.fr-reward-card:hover{box-shadow:0 6px 20px rgba(0,0,0,.06)}
+.fr-reward-card.muted{opacity:.62}
+.fr-reward-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px}
+.fr-reward-emoji{font-size:30px;line-height:1}
+.fr-stock-tag{font-size:11px;font-weight:600;padding:3px 8px;border-radius:7px;background:#F0EEE8;color:var(--muted)}
+.fr-stock-tag.ok{background:rgba(46,158,107,.13);color:var(--ok)}
+.fr-stock-tag.warn{background:rgba(217,140,31,.15);color:var(--warn)}
+.fr-stock-tag.err{background:rgba(216,72,58,.13);color:var(--err)}
+.fr-reward-name{font-weight:700;font-size:15px;color:var(--ink);line-height:1.25}
+.fr-reward-cat{font-size:11.5px;color:var(--muted);margin-top:3px}
+.fr-reward-foot{display:flex;justify-content:space-between;align-items:center;margin-top:14px;padding-top:13px;border-top:1px solid var(--line)}
+.fr-pts{font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:19px;color:var(--brand)}
+.fr-pts span{font-size:11px;font-weight:600;color:var(--muted)}
+.fr-reward-actions{margin-top:12px;display:flex;flex-direction:column;gap:8px}
+.fr-check{font-size:11.5px;font-weight:600}
+.fr-check.ok{color:var(--ok)}
+.fr-check.warn{color:var(--warn)}
+.fr-check.err{color:var(--err)}
+.fr-reward-mini{display:flex;align-items:center;gap:6px}
+.fr-mini-btn{border:1px dashed var(--line);background:none;font:inherit;font-size:11px;color:var(--muted);padding:4px 9px;border-radius:7px;cursor:pointer}
+.fr-mini-btn:hover{border-color:var(--brand);color:var(--brand)}
+.fr-reward-can{display:flex;align-items:center;gap:6px;margin-top:10px;flex-wrap:wrap}
+
+/* tables */
+.fr-table-head-actions{display:flex;justify-content:flex-end;margin-bottom:10px}
+.fr-table{background:var(--panel);border:1px solid var(--line);border-radius:13px;overflow:hidden}
+.fr-tr{display:grid;grid-template-columns:.7fr 1.3fr 1.4fr .7fr 1fr 1fr 1.2fr;align-items:center;padding:13px 18px;font-size:13px;border-bottom:1px solid var(--line);gap:8px}
+.fr-tr.tx{grid-template-columns:.7fr .8fr 1.3fr .7fr .8fr 1fr 1fr 1.3fr}
+.fr-tr:last-child{border-bottom:none}
+.fr-th{background:var(--paper);font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+.fr-tr:not(.fr-th):hover{background:#FBFAF7}
+.fr-mono{font-family:'JetBrains Mono',monospace;font-size:12.5px}
+.fr-inline-actions{display:flex;align-items:center;gap:6px}
+
+.fr-pill{font-size:11.5px;font-weight:600;padding:3px 10px;border-radius:20px}
+.fr-pill.ok{background:rgba(46,158,107,.13);color:var(--ok)}
+.fr-pill.warn{background:rgba(217,140,31,.15);color:var(--warn)}
+.fr-pill.err{background:rgba(216,72,58,.13);color:var(--err)}
+.fr-pill.off{background:#EEEDE8;color:var(--muted)}
+.fr-typepill{font-size:11.5px;font-weight:600;padding:3px 10px;border-radius:7px}
+.fr-typepill.earn{background:rgba(46,158,107,.13);color:var(--ok)}
+.fr-typepill.redeem{background:rgba(61,126,219,.13);color:#3D7EDB}
+
+.fr-tx-bar{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;gap:12px;flex-wrap:wrap}
+.fr-tx-cleanup{display:flex;align-items:center;gap:9px}
+
+/* SQL tag + modal (signature) */
+.fr-sqltag{display:inline-flex;align-items:center;gap:6px;background:var(--ink);color:#EDEDF0;border:none;font:inherit;font-size:11.5px;font-weight:600;padding:5px 10px 5px 5px;border-radius:8px;cursor:pointer;transition:.14s;white-space:nowrap}
+.fr-sqltag:hover{background:#000;transform:translateY(-1px)}
+.fr-sqltag.inline{background:#F0EEE8;color:#4A4A52;padding:3px 8px 3px 3px;font-size:10.5px}
+.fr-sqltag.inline:hover{background:#E6E3DA;transform:none}
+.fr-sqltag.tone-ok{background:rgba(46,158,107,.14);color:var(--ok)}
+.fr-sqltag.tone-err{background:rgba(216,72,58,.13);color:var(--err)}
+
+.fr-modal-back{position:fixed;inset:0;background:rgba(20,20,26,.55);backdrop-filter:blur(3px);display:grid;place-items:center;z-index:50;padding:24px;animation:frFade .18s ease}
+.fr-modal{background:#1B1C22;border:1px solid #2E2F38;border-radius:15px;width:min(720px,100%);max-height:82vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 24px 60px rgba(0,0,0,.5);animation:frPop .22s cubic-bezier(.2,.8,.3,1)}
+.fr-modal-head{display:flex;align-items:center;gap:14px;padding:18px 20px;border-bottom:1px solid #2E2F38}
+.fr-modal-kind{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--brand2);font-weight:600}
+.fr-modal-title{font-family:'JetBrains Mono',monospace;font-size:15px;color:#F4F3F0;font-weight:600;margin-top:3px}
+.fr-modal-author{display:flex;align-items:center;gap:8px;margin-left:auto;color:#C9C9D2;font-size:12.5px;font-weight:500}
+.fr-modal-x{background:#2A2B33;border:none;color:#B9B9C2;width:30px;height:30px;border-radius:8px;cursor:pointer;font-size:13px}
+.fr-modal-x:hover{background:#34353F;color:#fff}
+.fr-code{margin:0;padding:20px 22px;overflow:auto;font-family:'JetBrains Mono',monospace;font-size:12.5px;line-height:1.62;color:#D7DAE0;background:#16171C;flex:1;white-space:pre}
+.fr-modal-foot{padding:12px 20px;border-top:1px solid #2E2F38;font-size:12px;color:#8B8B95}
+
+.fr-toasts{position:fixed;top:20px;right:20px;z-index:60;display:flex;flex-direction:column;gap:9px}
+.fr-toast{display:flex;align-items:center;gap:9px;background:#1B1C22;color:#F0F0F3;font-size:13px;font-weight:500;padding:12px 16px;border-radius:11px;box-shadow:0 10px 30px rgba(0,0,0,.25);animation:frSlide .25s cubic-bezier(.2,.8,.3,1);max-width:340px}
+.fr-toast-dot{width:8px;height:8px;border-radius:50%;flex:none;background:#8B8B95}
+.fr-toast-ok .fr-toast-dot{background:var(--ok)}
+.fr-toast-err .fr-toast-dot{background:var(--err)}
+.fr-toast-warn .fr-toast-dot{background:var(--warn)}
+
+@keyframes frSlide{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:none}}
+@keyframes frFade{from{opacity:0}to{opacity:1}}
+@keyframes frPop{from{opacity:0;transform:scale(.96) translateY(8px)}to{opacity:1;transform:none}}
+
+@media (max-width:900px){
+  .fr-side{width:64px;padding:16px 8px}
+  .fr-brand-name,.fr-brand-sub,.fr-nav-btn span,.fr-side-foot{display:none}
+  .fr-nav-btn{justify-content:center;padding:11px}
+  .fr-stats{grid-template-columns:repeat(2,1fr)}
+  .fr-grid-2{grid-template-columns:1fr}
+  .fr-split{grid-template-columns:1fr}
+  .fr-profile-stats{grid-template-columns:repeat(2,1fr)}
+  .fr-page{padding:24px 20px 50px}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+`;
+
+const rootEl = document.getElementById("root");
+ReactDOM.createRoot(rootEl).render(<App />);
+  </script>
+</body>
+</html>
